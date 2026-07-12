@@ -147,9 +147,9 @@ a{color:inherit;text-decoration:none}
 .home-head p{font-size:13.5px;color:var(--muted);margin-top:4px;max-width:560px}
 .btn-takwim{display:inline-flex;align-items:center;gap:8px;background:linear-gradient(180deg,var(--brass),var(--brass2));color:#241a06;font-weight:700;padding:12px 18px;border-radius:12px;box-shadow:0 8px 20px rgba(200,162,74,.25);font-size:14px;white-space:nowrap;transition:.16s}
 .btn-takwim:hover{filter:brightness(1.05);transform:translateY(-1px)}
-.rpm-wrap{position:relative;border:1px solid var(--line);border-radius:var(--r);overflow:hidden;box-shadow:var(--shadow);background:#fff;margin-bottom:6px}
-.rpm-wrap iframe{width:100%;height:70vh;min-height:500px;border:none;display:block;background:#fff}
-.rpm-open{display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:600;color:var(--brass2);padding:6px 2px}
+.fb-wrap{position:relative;border:1px solid var(--line);border-radius:var(--r);overflow:hidden;box-shadow:var(--shadow);background:#fff;margin-bottom:6px;min-height:520px;display:flex;flex-direction:column}
+.fb-wrap iframe{width:100%;height:640px;border:none;display:block;background:transparent;position:relative;z-index:1}
+.fb-note{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;padding:30px;color:var(--muted);font-size:13.5px;z-index:0}
 
 /* announcements */
 .ann{background:var(--paper2);border:1px solid var(--line);border-radius:var(--r);padding:16px 18px;margin-bottom:12px;box-shadow:var(--shadow);position:relative;overflow:hidden}
@@ -226,7 +226,7 @@ textarea.finput{min-height:84px;resize:vertical}
   .sidebar.open{transform:none}
   .scrim{display:block;position:fixed;inset:0;background:rgba(13,31,56,.5);z-index:70;opacity:0;pointer-events:none;transition:opacity .25s}
   .scrim.show{opacity:1;pointer-events:auto}
-  .rpm-wrap iframe{height:64vh;min-height:420px}
+  .rpm-wrap iframe,.fb-wrap iframe{height:600px}
 }
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 </style>
@@ -312,14 +312,18 @@ textarea.finput{min-height:84px;resize:vertical}
 
         <div class="home-head">
           <div class="ht">
-            <div class="eyebrow">Dokumen Rujukan</div>
-            <h1 id="rpmTajuk">Dokumen RPM 2026–2035</h1>
-            <p id="rpmNota"></p>
+            <div class="eyebrow">Hebahan Rasmi</div>
+            <h1 id="fbTajuk">Facebook JPN Kedah</h1>
+            <p id="fbNota"></p>
           </div>
-          <a id="takwimBtn" class="btn-takwim" target="_blank" rel="noopener">📅 <span id="takwimLabel">Buka Takwim JPNK</span> ↗</a>
+          <a id="fbBtn" class="btn-takwim" target="_blank" rel="noopener">📘 Buka Facebook ↗</a>
         </div>
-        <div class="rpm-wrap"><iframe id="rpmFrame" title="Dokumen RPM" referrerpolicy="no-referrer"></iframe></div>
-        <a id="rpmOpen" class="rpm-open" target="_blank" rel="noopener">Buka dokumen penuh dalam tab baharu ↗</a>
+        <div class="fb-wrap">
+          <div class="fb-note" id="fbNote">Jika feed tidak dipaparkan, gunakan butang di atas untuk membuka Facebook JPN Kedah.</div>
+          <iframe id="fbFrame" title="Facebook JPN Kedah" scrolling="no" frameborder="0"
+                  allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share"
+                  allowfullscreen="true"></iframe>
+        </div>
 
         <div class="sec-h"><span class="eyebrow">Terkini</span><h2>Pengumuman</h2><span class="rule"></span></div>
         <div id="annList"><div class="loading"><span class="spin dark"></span></div></div>
@@ -395,12 +399,24 @@ const SEKTOR = [
   'Sektor Infrastruktur & Perolehan','Sektor Pengurusan Maklumat'
 ];
 const DEFAULTS = {
-  rpm_tajuk:'Dokumen RPM 2026–2035',
-  rpm_nota:'Rujukan rasmi Rancangan Pembangunan JPN Kedah.',
+  fb_tajuk:'Facebook JPN Kedah',
+  fb_nota:'Pos terkini daripada laman Facebook rasmi Jabatan Pendidikan Negeri Kedah.',
+  fb_url:'https://www.facebook.com/profile.php?id=61584558187780',
   rpm_url:'https://realgheart-art.github.io/dokumenrpm',
   takwim_url:'https://realgheart-art.github.io/takwimjpnk',
   takwim_label:'Buka Takwim JPNK'
 };
+
+/* Bina URL Facebook Page Plugin (satu-satunya cara sah untuk embed feed Page) */
+function fbPluginUrl(pageUrl, width){
+  const w = Math.max(180, Math.min(500, Math.round(width || 500)));
+  const p = new URLSearchParams({
+    href: pageUrl, tabs:'timeline', width:String(w), height:'640',
+    small_header:'false', adapt_container_width:'true',
+    hide_cover:'false', show_facepile:'true'
+  });
+  return 'https://www.facebook.com/plugins/page.php?' + p.toString();
+}
 
 const state = { token:null, user:null, dir:[], ann:[], settings:{}, view:'home', sektor:null };
 const $ = s => document.querySelector(s);
@@ -496,6 +512,7 @@ const Nav = {
       '<div class="nav-label">Pautan Pantas</div>'+
       '<a class="nav-item" href="'+esc(cfg('rpm_url'))+'" target="_blank" rel="noopener"><span>📘</span><span class="txt">Dokumen RPM 2026–2035</span><span style="opacity:.5;font-size:11px">↗</span></a>'+
       '<a class="nav-item" href="'+esc(cfg('takwim_url'))+'" target="_blank" rel="noopener"><span>📅</span><span class="txt">Takwim JPNK</span><span style="opacity:.5;font-size:11px">↗</span></a>'+
+      '<a class="nav-item" href="'+esc(cfg('fb_url'))+'" target="_blank" rel="noopener"><span>👍</span><span class="txt">Facebook JPN Kedah</span><span style="opacity:.5;font-size:11px">↗</span></a>'+
       '<div class="nav-label">Dashboard</div>'+
       '<button class="nav-toggle '+(Nav.sektorOpen?'open':'')+'" data-nav="toggle-sektor"><span>🗂️</span><span class="txt">Sektor</span><span class="nb">'+SEKTOR.length+'</span><span class="car">▼</span></button>'+
       '<div class="nav-sub '+(Nav.sektorOpen?'open':'')+'">'+subs+'</div>';
@@ -546,9 +563,9 @@ const V = {
   show(id){ ['viewHome','viewSektor','viewProfile','viewAdmin'].forEach(v=>$('#'+v).classList.add('hidden')); $('#'+id).classList.remove('hidden'); $('#userMenu').classList.add('hidden'); $('.main').scrollTop=0; },
   home(){
     state.view='home'; state.sektor=null; V.show('viewHome');
-    $('#rpmTajuk').textContent=cfg('rpm_tajuk'); $('#rpmNota').textContent=cfg('rpm_nota');
-    $('#rpmFrame').src=cfg('rpm_url'); $('#rpmOpen').href=cfg('rpm_url');
-    $('#takwimBtn').href=cfg('takwim_url'); $('#takwimLabel').textContent=cfg('takwim_label');
+    $('#fbTajuk').textContent=cfg('fb_tajuk'); $('#fbNota').textContent=cfg('fb_nota');
+    $('#fbBtn').href=cfg('fb_url');
+    renderFB();
     renderAnn(); loadAktiviti(); Nav.render(); Nav.close();
   },
   sektor(name){
@@ -565,6 +582,19 @@ const V = {
   },
   closeViewer(){ $('#viewer').classList.add('hidden'); $('#vFrame').src='about:blank'; },
 };
+
+function renderFB(){
+  const wrap=$('.fb-wrap'); const fr=$('#fbFrame');
+  if(!wrap||!fr) return;
+  const w = wrap.clientWidth || 500;
+  fr.src = fbPluginUrl(cfg('fb_url'), w);
+}
+/* Bina semula plugin bila saiz tetingkap berubah (lebar plugin tetap, jadi perlu set semula) */
+let _fbT=null;
+window.addEventListener('resize',()=>{
+  if(state.view!=='home') return;
+  clearTimeout(_fbT); _fbT=setTimeout(renderFB,400);
+});
 
 function renderAnn(){
   const el=$('#annList');
@@ -706,16 +736,18 @@ const Admin = {
   renderSet(){
     const s=state.settings||{};
     $('#adminBody').innerHTML=`<div class="panel"><h3>Tetapan Paparan Depan</h3>
-      <p class="desc">Kawal dokumen RPM yang di-embed dan butang Takwim — tukar bila-bila tanpa sentuh kod.</p>
-      <label class="flabel">Tajuk paparan RPM</label><input id="sTajuk" class="finput" value="${esc(s.rpm_tajuk||DEFAULTS.rpm_tajuk)}">
-      <label class="flabel">Nota ringkas</label><input id="sNota" class="finput" value="${esc(s.rpm_nota||DEFAULTS.rpm_nota)}">
-      <label class="flabel">URL Dokumen RPM (di-embed)</label><input id="sRpm" class="finput" value="${esc(s.rpm_url||DEFAULTS.rpm_url)}">
-      <label class="flabel">URL Takwim JPNK</label><input id="sTakwim" class="finput" value="${esc(s.takwim_url||DEFAULTS.takwim_url)}">
-      <label class="flabel">Teks butang Takwim</label><input id="sLabel" class="finput" value="${esc(s.takwim_label||DEFAULTS.takwim_label)}">
+      <p class="desc">Kawal feed Facebook di paparan depan dan pautan pantas di sidebar — tukar bila-bila tanpa sentuh kod.</p>
+      <label class="flabel">Tajuk bahagian Facebook</label><input id="sFbTajuk" class="finput" value="${esc(s.fb_tajuk||DEFAULTS.fb_tajuk)}">
+      <label class="flabel">Nota ringkas</label><input id="sFbNota" class="finput" value="${esc(s.fb_nota||DEFAULTS.fb_nota)}">
+      <label class="flabel">URL Facebook Page JPN Kedah</label><input id="sFbUrl" class="finput" value="${esc(s.fb_url||DEFAULTS.fb_url)}">
+      <p class="desc" style="margin-top:-6px">Mesti Facebook <b>Page</b> yang awam. Profil peribadi tidak boleh di-embed oleh Facebook.</p>
+      <hr style="border:none;border-top:1px solid var(--line);margin:6px 0 18px">
+      <label class="flabel">URL Dokumen RPM (pautan sidebar)</label><input id="sRpm" class="finput" value="${esc(s.rpm_url||DEFAULTS.rpm_url)}">
+      <label class="flabel">URL Takwim JPNK (pautan sidebar)</label><input id="sTakwim" class="finput" value="${esc(s.takwim_url||DEFAULTS.takwim_url)}">
       <button class="btn btn-dark btn-sm" id="btnSaveSet">Simpan tetapan</button></div>`;
     $('#btnSaveSet').onclick=async()=>{
-      const settings={rpm_tajuk:$('#sTajuk').value.trim(),rpm_nota:$('#sNota').value.trim(),
-        rpm_url:$('#sRpm').value.trim(),takwim_url:$('#sTakwim').value.trim(),takwim_label:$('#sLabel').value.trim()};
+      const settings={fb_tajuk:$('#sFbTajuk').value.trim(),fb_nota:$('#sFbNota').value.trim(),fb_url:$('#sFbUrl').value.trim(),
+        rpm_url:$('#sRpm').value.trim(),takwim_url:$('#sTakwim').value.trim()};
       loadBtn($('#btnSaveSet'),true); const r=await api('adminSaveSettings',{settings});
       if(r.ok){ state.settings=Object.assign(state.settings,settings); toast('Tetapan disimpan','ok'); }
       else toast(r.mesej||'Gagal','err');
