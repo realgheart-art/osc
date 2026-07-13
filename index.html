@@ -397,7 +397,7 @@ textarea.finput{min-height:84px;resize:vertical}
 /* =================================================================
    OSC JPN KEDAH — Frontend (susun atur sidebar)
    ================================================================= */
-const API_URL = 'https://script.google.com/macros/s/AKfycbyd3xC3O1DVbHJZMSX332dirMU2_qs3ZygYhcQ1iZHMt9pwF1Re-xlpWngnZGr1yjQI/exec;   // <-- TAMPAL URL /exec DI SINI
+const API_URL = 'https://script.google.com/macros/s/AKfycbyd3xC3O1DVbHJZMSX332dirMU2_qs3ZygYhcQ1iZHMt9pwF1Re-xlpWngnZGr1yjQI/exec';   // <-- TAMPAL URL /exec DI SINI
 
 
 const EMAIL_DOMAIN = '@moe.gov.my';   // paparan sahaja; backend tambah domain secara automatik
@@ -437,9 +437,26 @@ const esc = s => String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&l
 const cfg = k => (state.settings && state.settings[k]) ? state.settings[k] : DEFAULTS[k];
 
 async function api(action, params={}){
+  // Semakan awal: URL backend belum ditetapkan
+  if(!API_URL || API_URL.indexOf('__API') === 0 || API_URL.indexOf('/exec') < 0){
+    throw new Error('API_URL belum ditetapkan. Buka index.html, cari "const API_URL" dan tampal URL /exec deployment Apps Script anda.');
+  }
   const body = JSON.stringify(Object.assign({action, token:state.token}, params));
-  const res = await fetch(API_URL, {method:'POST', body, headers:{'Content-Type':'text/plain;charset=utf-8'}, redirect:'follow'});
-  const data = await res.json();
+  let res;
+  try{
+    res = await fetch(API_URL, {method:'POST', body, headers:{'Content-Type':'text/plain;charset=utf-8'}, redirect:'follow'});
+  }catch(err){
+    throw new Error('Tidak dapat menghubungi pelayan. Semak URL deployment dan pastikan "Who has access" = Anyone.');
+  }
+  if(!res.ok) throw new Error('Pelayan membalas ralat ' + res.status + '. Pastikan deployment Web App aktif.');
+
+  const teks = await res.text();
+  let data;
+  try{ data = JSON.parse(teks); }
+  catch(err){
+    // Biasanya halaman log masuk Google = deployment tidak dibuka kepada "Anyone"
+    throw new Error('Balasan bukan JSON. Kemungkinan besar deployment belum ditetapkan "Who has access: Anyone".');
+  }
   if(data && data.expired){ A.forceLogout('Sesi tamat. Sila log masuk semula.'); throw new Error('expired'); }
   return data;
 }
@@ -467,7 +484,7 @@ const A = {
       }
       if(r.hasPassword){A.step('stepLogin');setTimeout(()=>$('#inPass').focus(),80);}
       else{A.step('stepSet');setTimeout(()=>$('#inSet1').focus(),80);}
-    }catch(e){A.msg('Gagal menyambung ke pelayan.');}
+    }catch(e){A.msg(e.message||'Gagal menyambung ke pelayan.');}
     loadBtn(b,false,'Teruskan');
   },
   async mohon(){
@@ -478,7 +495,7 @@ const A = {
       const r=await api('requestAccess',{email:A.email,nama});
       if(!r.ok){ A.msg(r.mesej||'Gagal menghantar permohonan.'); loadBtn(b,false,'Hantar permohonan'); return; }
       A.step('stepEmail'); $('#inEmail').value=''; A.msg(r.mesej||'Permohonan dihantar.','ok');
-    }catch(e){ A.msg('Gagal menyambung ke pelayan.'); }
+    }catch(e){ A.msg(e.message||'Gagal menyambung ke pelayan.'); }
     loadBtn(b,false,'Hantar permohonan');
   },
   async login(){
@@ -486,7 +503,7 @@ const A = {
     const b=$('#btnLogin'); loadBtn(b,true);
     try{ const r=await api('login',{email:A.email,password});
       if(!r.ok){A.msg(r.mesej||'Log masuk gagal.');loadBtn(b,false,'Log masuk');return;} A.success(r);
-    }catch(e){A.msg('Gagal menyambung ke pelayan.');loadBtn(b,false,'Log masuk');}
+    }catch(e){A.msg(e.message||'Gagal menyambung ke pelayan.');loadBtn(b,false,'Log masuk');}
   },
   async setPw(){
     const p1=$('#inSet1').value,p2=$('#inSet2').value;
@@ -495,12 +512,14 @@ const A = {
     const b=$('#btnSet'); loadBtn(b,true);
     try{ const r=await api('setPassword',{email:A.email,password:p1});
       if(!r.ok){A.msg(r.mesej||'Gagal.');loadBtn(b,false,'Tetapkan & masuk');return;} A.success(r);
-    }catch(e){A.msg('Gagal menyambung ke pelayan.');loadBtn(b,false,'Tetapkan & masuk');}
+    }catch(e){A.msg(e.message||'Gagal menyambung ke pelayan.');loadBtn(b,false,'Tetapkan & masuk');}
   },
   async showReset(){
     if(!A.email){A.msg('Sila masukkan emel dahulu.');return;} A.msg('');
-    const r=await api('requestReset',{email:A.email});
-    A.step('stepReset'); A.msg(r.mesej||'Kod dihantar jika emel sah.','ok'); setTimeout(()=>$('#inCode').focus(),80);
+    try{
+      const r=await api('requestReset',{email:A.email});
+      A.step('stepReset'); A.msg(r.mesej||'Kod dihantar jika emel sah.','ok'); setTimeout(()=>$('#inCode').focus(),80);
+    }catch(e){ A.msg(e.message||'Gagal menyambung ke pelayan.'); }
   },
   async doReset(){
     const code=$('#inCode').value.trim(),password=$('#inNew').value;
@@ -508,7 +527,7 @@ const A = {
     const b=$('#btnReset'); loadBtn(b,true);
     try{ const r=await api('resetPassword',{email:A.email,code,password});
       if(!r.ok){A.msg(r.mesej||'Gagal.');loadBtn(b,false,'Set semula & masuk');return;} A.success(r);
-    }catch(e){A.msg('Gagal menyambung ke pelayan.');loadBtn(b,false,'Set semula & masuk');}
+    }catch(e){A.msg(e.message||'Gagal menyambung ke pelayan.');loadBtn(b,false,'Set semula & masuk');}
   },
   success(r){ state.token=r.token; state.user=r.user;
     try{localStorage.setItem('osc_token',r.token);localStorage.setItem('osc_user',JSON.stringify(r.user));}catch(e){} boot(); },
@@ -1016,6 +1035,10 @@ $('#btnChangePw').onclick=async()=>{
 
 /* ---- sesi sedia ada ---- */
 (function initSession(){
+  // Amaran awal jika backend belum disambung
+  if(!API_URL || API_URL.indexOf('__API') === 0 || API_URL.indexOf('/exec') < 0){
+    A.msg('⚠️ Backend belum disambung. Buka index.html, cari "const API_URL" dan tampal URL /exec deployment Apps Script.','err');
+  }
   try{ const t=localStorage.getItem('osc_token'),u=localStorage.getItem('osc_user');
     if(t&&u){ state.token=t; state.user=JSON.parse(u); boot(); return; } }catch(e){}
   setTimeout(()=>$('#inEmail').focus(),200);
