@@ -218,6 +218,21 @@ textarea.finput{min-height:84px;resize:vertical}
 .mini{font-size:12px;padding:6px 10px;border-radius:8px;font-weight:600}
 .mini-edit{background:#eef1f7;color:var(--navy)}.mini-del{background:#f7e9e7;color:var(--danger)}
 .tbl-scroll{overflow-x:auto}
+
+/* Direktori admin — dikumpul ikut sektor */
+.dsh-sek{margin-bottom:16px}
+.dsh-sek-h{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+.dsh-sek-h b{font-family:var(--disp);font-weight:600;font-size:14.5px;color:var(--navy)}
+.dsh-cnt{font-size:11px;font-weight:700;background:var(--paper);border:1px solid var(--line);color:var(--muted);border-radius:20px;padding:1px 9px;min-width:24px;text-align:center}
+.dsh-cnt.ada{background:var(--navy);border-color:var(--navy);color:var(--brass-soft)}
+.dsh-sek-h .ln{flex:1;height:1px;background:var(--line)}
+.dsh-row{display:flex;align-items:center;gap:10px;padding:9px 12px;border:1px solid var(--line);border-radius:11px;background:#fff;margin-bottom:6px;flex-wrap:wrap}
+.dsh-row.dsh-kosong{background:repeating-linear-gradient(135deg,#faf7f0,#faf7f0 8px,#f3eee2 8px,#f3eee2 16px);border-style:dashed}
+.dsh-ic{font-size:17px;flex-shrink:0}
+.dsh-n{flex:1;min-width:150px;font-size:13.5px;display:flex;flex-direction:column;gap:1px}
+.dsh-u{font-size:10.5px;color:var(--muted);word-break:break-all}
+.dsh-m{font-size:11px;color:var(--muted);background:var(--paper);border-radius:20px;padding:1px 8px}
+.dsh-a{display:flex;gap:5px;flex-shrink:0}
 .overlay{position:fixed;inset:0;z-index:95;background:rgba(13,31,56,.55);display:flex;align-items:flex-end;justify-content:center}
 .modal{background:#fff;width:100%;max-width:520px;border-radius:20px 20px 0 0;padding:22px 20px calc(env(safe-area-inset-bottom) + 22px);box-shadow:var(--shadow-lg);max-height:90vh;overflow:auto}
 .modal h3{font-family:var(--disp);font-weight:600;font-size:19px;margin-bottom:16px}
@@ -764,19 +779,62 @@ const Admin = {
     };
   },
   async annDel(id){ if(!confirm('Padam pengumuman ini?'))return; const r=await api('adminDeleteAnnouncement',{id}); if(r.ok){await refreshCore();Admin.load('ann');toast('Dipadam','ok');} },
-  /* Direktori */
+  /* Direktori — dikumpul ikut sektor */
   renderDir(){
-    $('#adminBody').innerHTML=`<div class="panel"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
-      <h3 style="margin:0">Direktori Dashboard</h3><button class="btn btn-dark btn-sm" onclick="Admin.dirForm()">+ Baharu</button></div>
-      <div class="tbl-scroll"><table class="tbl"><thead><tr><th>Sektor</th><th>Dashboard</th><th>Mod</th><th>Status</th><th></th></tr></thead><tbody>
-      ${state.dir.map(d=>{ const has=d.URL && String(d.Status).toLowerCase()==='aktif';
-        const st=String(d.Status).toLowerCase()==='aktif'?'<span class="tag-s tag-aktif">Aktif</span>':String(d.Status).toLowerCase()==='sorok'?'<span class="tag-s tag-off">Sorok</span>':'<span class="tag-s tag-soon">Akan Datang</span>';
-        return `<tr><td style="font-size:12px">${esc(d.Sektor.replace('Sektor ',''))}</td>
-        <td>${d.NamaDashboard?('<b>'+esc(d.NamaDashboard)+'</b>'):'<i style="color:var(--muted)">—</i>'}</td>
-        <td>${has?esc(d.ModPaparan):'—'}</td><td>${st}</td>
-        <td style="white-space:nowrap"><button class="mini mini-edit" onclick='Admin.dirForm(${JSON.stringify(d).replace(/'/g,"&#39;")})'>Sunting</button>
-        ${d.NamaDashboard?`<button class="mini mini-del" onclick="Admin.dirDel(${d._row})">Padam</button>`:''}</td></tr>`;}).join('')}
-      </tbody></table></div></div>`;
+    const bySektor={};
+    SEKTOR.forEach(s=>bySektor[s]=[]);
+    (state.dir||[]).forEach(d=>{ (bySektor[d.Sektor]=bySektor[d.Sektor]||[]).push(d); });
+
+    const jumlah = (state.dir||[]).filter(d=>d.URL && String(d.Status).toLowerCase()==='aktif').length;
+
+    const blok = SEKTOR.map(sektor=>{
+      const semua = bySektor[sektor]||[];
+      const isi = semua.filter(d=>d.NamaDashboard && d.URL);   // baris sebenar
+      const kosong = semua.filter(d=>!d.NamaDashboard || !d.URL); // slot "Akan Datang"
+      const aktif = isi.filter(d=>String(d.Status).toLowerCase()==='aktif').length;
+
+      const baris = isi.map(d=>{
+        const st=String(d.Status).toLowerCase();
+        const badge = st==='aktif' ? '<span class="tag-s tag-aktif">Aktif</span>'
+                    : st==='sorok' ? '<span class="tag-s tag-off">Sorok</span>'
+                    : '<span class="tag-s tag-soon">Akan Datang</span>';
+        return `<div class="dsh-row">
+          <span class="dsh-ic">${esc(d.Ikon||'📊')}</span>
+          <span class="dsh-n"><b>${esc(d.NamaDashboard)}</b>
+            <span class="dsh-u">${esc(d.URL)}</span></span>
+          <span class="dsh-m">${esc(d.ModPaparan||'tab')}</span>
+          ${badge}
+          <span class="dsh-a">
+            <button class="mini mini-edit" onclick='Admin.dirForm(${JSON.stringify(d).replace(/'/g,"&#39;")})'>Sunting</button>
+            <button class="mini mini-del" onclick="Admin.dirDel(${d._row})">Padam</button>
+          </span></div>`;
+      }).join('');
+
+      // Slot kosong "Akan Datang" — tunjuk sebagai jemputan mengisi, bukan baris data
+      const slot = (!isi.length && kosong.length)
+        ? `<div class="dsh-row dsh-kosong">
+             <span class="dsh-ic">🕒</span>
+             <span class="dsh-n" style="color:var(--muted)">Belum ada dashboard — tekan “+ Dashboard” untuk mengisi.</span>
+           </div>` : '';
+
+      return `<div class="dsh-sek">
+        <div class="dsh-sek-h">
+          <b>${esc(sektor.replace('Sektor ',''))}</b>
+          <span class="dsh-cnt ${aktif?'ada':''}">${aktif}</span>
+          <span class="ln"></span>
+          <button class="mini" style="background:var(--navy);color:#fff" onclick="Admin.dirForm({Sektor:'${esc(sektor)}'})">+ Dashboard</button>
+        </div>
+        ${baris}${slot}
+      </div>`;
+    }).join('');
+
+    $('#adminBody').innerHTML=`<div class="panel">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px">
+        <h3 style="margin:0">Direktori Dashboard</h3>
+        <span class="tag-s tag-warga">${jumlah} dashboard aktif</span>
+      </div>
+      <p class="desc">Setiap sektor boleh ada <b>berbilang dashboard</b> — tekan “+ Dashboard” pada sektor berkenaan untuk menambah.</p>
+      ${blok}</div>`;
   },
   dirForm(d){ d=d||{};
     const opts=SEKTOR.map(s=>`<option ${d.Sektor===s?'selected':''}>${esc(s)}</option>`).join('');
@@ -795,11 +853,18 @@ const Admin = {
         <option value="Sorok" ${d.Status==='Sorok'?'selected':''}>Sorok</option></select></div></div>
       <button class="btn btn-dark" id="mSave">Simpan</button>`);
     $('#mSave').onclick=async()=>{
-      const item={_row:d._row||'',Sektor:$('#fSektor').value,NamaDashboard:$('#fNama').value.trim(),URL:$('#fUrl').value.trim(),
+      const sektor=$('#fSektor').value;
+      let row=d._row||'';
+      // Tambah baharu: jika sektor ini masih ada slot kosong "Akan Datang", isi slot itu
+      if(!row){
+        const kosong=(state.dir||[]).find(x=>x.Sektor===sektor && (!x.NamaDashboard || !x.URL));
+        if(kosong) row=kosong._row;
+      }
+      const item={_row:row,Sektor:sektor,NamaDashboard:$('#fNama').value.trim(),URL:$('#fUrl').value.trim(),
         Kategori:$('#fKat').value.trim(),Ikon:$('#fIkon').value.trim(),ModPaparan:$('#fMod').value,Susunan:d.Susunan||1,Status:$('#fStat').value};
       if(item.Status==='Aktif' && (!item.NamaDashboard||!item.URL)){toast('Nama & URL wajib untuk status Aktif','err');return;}
       loadBtn($('#mSave'),true); const r=await api('adminSaveDirectory',{item});
-      if(r.ok){closeModal();await refreshCore();Admin.load('dir');toast('Direktori disimpan','ok');}else{toast(r.mesej||'Gagal','err');loadBtn($('#mSave'),false,'Simpan');}
+      if(r.ok){closeModal();await refreshCore();Admin.load('dir');Nav.render();toast('Direktori disimpan','ok');}else{toast(r.mesej||'Gagal','err');loadBtn($('#mSave'),false,'Simpan');}
     };
   },
   async dirDel(row){ if(!confirm('Padam entri direktori ini?'))return; const r=await api('adminDeleteDirectory',{row}); if(r.ok){await refreshCore();Admin.load('dir');toast('Dipadam','ok');} },
